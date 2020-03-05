@@ -15,11 +15,24 @@ import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bumptech.glide.request.RequestOptions;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.android.material.snackbar.Snackbar;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.OnProgressListener;
 import com.google.firebase.storage.StorageReference;
+import com.google.firebase.storage.UploadTask;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -91,7 +104,7 @@ public class MainActivity extends AppCompatActivity {
                     return true;
                 case R.id.navigation_camera:
                     mTextMessage.setText(R.string.main_label_camera);
-                    //fromCamera();
+                    fromCamera();
                     //dispatchTakePictureIntent();
                     checkPermissionToApp(Manifest.permission.CAMERA, RP_CAMERA);
                     return true;
@@ -158,6 +171,7 @@ public class MainActivity extends AppCompatActivity {
 
         //mostrar foto de Firestore
         configPhotoProfile();
+        btnDelete.setVisibility(View.GONE);
     }
 
     private void configFirebase() {
@@ -168,7 +182,50 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void configPhotoProfile() {
+//        mStorageReference = FirebaseStorage.getInstance().getReference();
+//        FirebaseDatabase firebaseDatabase = FirebaseDatabase.getInstance();
+//        mDatabaseReference = firebaseDatabase.getReference().child(PATH_PROFILE).child(PATH_PHOTO_URL);
+        mStorageReference.child(PATH_PROFILE).child(MY_PHOTO).getDownloadUrl()
+                .addOnSuccessListener(new OnSuccessListener<Uri>() {
+                    @Override
+                    public void onSuccess(Uri uri) {
+                        final RequestOptions options = new RequestOptions().centerCrop().diskCacheStrategy(DiskCacheStrategy.ALL);
 
+                        Glide.with(MainActivity.this)
+                                .load(uri)
+                                .apply(options)
+                                .into(imgPhoto);
+                        //imgPhoto.setImageURI(mPhotoSelectedUri);
+
+                        btnDelete.setVisibility(View.VISIBLE);
+                    }
+                }).addOnFailureListener(new OnFailureListener() {
+            @Override
+            public void onFailure(@NonNull Exception e) {
+                Snackbar.make(container, "No existe o da error " + e.getMessage(), Snackbar.LENGTH_LONG).show();
+            }
+        });
+        //MANERA 2
+        /*
+        mDatabaseReference.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                final RequestOptions options = new RequestOptions().centerCrop().diskCacheStrategy(DiskCacheStrategy.ALL);
+
+                Glide.with(MainActivity.this)
+                        .load(dataSnapshot.toString())
+                        .apply(options)
+                        .into(imgPhoto);
+                //imgPhoto.setImageURI(mPhotoSelectedUri);
+                btnDelete.setVisibility(View.VISIBLE);
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+                Snackbar.make(container, "No existe o da error " + databaseError.getMessage(), Snackbar.LENGTH_LONG).show();
+            }
+        });
+         */
     }
 
     private void fromGallery() {
@@ -268,7 +325,7 @@ public class MainActivity extends AppCompatActivity {
         int width = image.getWidth();
         int height = image.getHeight();
 
-        float bitmapRatio = (float)width / (float) height;
+        float bitmapRatio = (float) width / (float) height;
         if (bitmapRatio > 1) {
             width = maxSize;
             height = (int) (width / bitmapRatio);
@@ -283,8 +340,45 @@ public class MainActivity extends AppCompatActivity {
     public void onUploadPhoto() {
         progressBar.setVisibility(View.VISIBLE);
         Bitmap bitmap;
-
-
+//firestore
+        StorageReference profileReference = mStorageReference.child(PATH_PROFILE);
+        StorageReference photoReference = profileReference.child(MY_PHOTO);
+        photoReference.putFile(mPhotoSelectedUri)
+                .addOnProgressListener(new OnProgressListener<UploadTask.TaskSnapshot>() {
+                    @Override
+                    public void onProgress(UploadTask.TaskSnapshot taskSnapshot) {//TODO ALEX
+                        double progress = (100 * taskSnapshot.getBytesTransferred()) / taskSnapshot.getTotalByteCount();
+                        progressBar.setProgress((int) progress);
+                        mTextMessage.setText(String.format("%s%%", progress));
+                    }
+                })
+                .addOnCompleteListener(new OnCompleteListener<UploadTask.TaskSnapshot>() {
+                    @Override
+                    public void onComplete(@NonNull Task<UploadTask.TaskSnapshot> task) {
+                        progressBar.setVisibility(View.GONE);
+                    }
+                })
+                .addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
+                    @Override
+                    public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
+                        Snackbar.make(container, "Imagen subida", Snackbar.LENGTH_SHORT);
+                        taskSnapshot.getStorage().getDownloadUrl()
+                                .addOnSuccessListener(new OnSuccessListener<Uri>() {
+                                    @Override
+                                    public void onSuccess(Uri uri) {
+                                        savePhotoUrl(uri);
+                                        btnDelete.setVisibility(View.VISIBLE);
+                                        mTextMessage.setText("Todo ok!");
+                                    }
+                                });
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        Snackbar.make(container, "Error al subir la imagen " + e.getMessage() + e.getCause(), Snackbar.LENGTH_LONG);
+                    }
+                });
     }
 
     private void savePhotoUrl(Uri downloadUri) {
@@ -293,7 +387,22 @@ public class MainActivity extends AppCompatActivity {
 
     @OnClick(R.id.btnDelete)
     public void onDeletePhoto() {
-
+        mStorageReference.child(PATH_PROFILE).child(MY_PHOTO).delete()
+                .addOnSuccessListener(new OnSuccessListener<Void>() {
+                    @Override
+                    public void onSuccess(Void aVoid) {
+                        mDatabaseReference.removeValue();
+                        imgPhoto.setImageBitmap(null);
+                        btnDelete.setVisibility(View.GONE);
+                        Snackbar.make(container, "Imagen eliminada", Snackbar.LENGTH_LONG).show();
+                    }
+                })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception e) {
+                        Snackbar.make(container, "Error al eliminar la imagen " + e.getMessage(), Snackbar.LENGTH_LONG).show();
+                    }
+                });
     }
 }
 
