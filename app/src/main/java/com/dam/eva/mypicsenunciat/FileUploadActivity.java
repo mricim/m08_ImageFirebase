@@ -1,5 +1,13 @@
 package com.dam.eva.mypicsenunciat;
 
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.AppCompatImageView;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
+
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -8,7 +16,9 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
 import android.provider.MediaStore;
+import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ImageButton;
@@ -24,27 +34,12 @@ import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.snackbar.Snackbar;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.OnProgressListener;
 import com.google.firebase.storage.StorageReference;
 import com.google.firebase.storage.UploadTask;
-
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.AppCompatImageView;
-import androidx.constraintlayout.widget.ConstraintLayout;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import androidx.core.content.FileProvider;
-import androidx.navigation.NavController;
-import androidx.navigation.Navigation;
-import androidx.navigation.ui.AppBarConfiguration;
-import androidx.navigation.ui.NavigationUI;
 
 import java.io.File;
 import java.io.IOException;
@@ -56,8 +51,7 @@ import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
 
-
-public class MainActivity extends AppCompatActivity {
+public class FileUploadActivity extends AppCompatActivity {
 
     private static final int RC_GALLERY = 21;
     private static final int RC_CAMERA = 22;
@@ -73,14 +67,14 @@ public class MainActivity extends AppCompatActivity {
     private static final String PATH_PROFILE = "profile";
     private static final String PATH_PHOTO_URL = "photoUrl";
 
-    @BindView(R.id.imgPhoto)
-    AppCompatImageView imgPhoto;
-    @BindView(R.id.btnDelete)
-    ImageButton btnDelete;
+    @BindView(R.id.imgPhoto2)
+    AppCompatImageView imgPhoto2;
+    @BindView(R.id.btnDelete2)
+    ImageButton btnDelete2;
     @BindView(R.id.container)
     ConstraintLayout container;
-    @BindView(R.id.progressBar)
-    ProgressBar progressBar;
+    @BindView(R.id.progressBar2)
+    ProgressBar progressBar2;
     private TextView mTextMessage;
 
     private StorageReference mStorageReference;
@@ -142,7 +136,30 @@ public class MainActivity extends AppCompatActivity {
                 break;
         }
     }
-
+/*
+    public void uploadFile2() {
+        if (imgPhoto2 != null && mPhotoSelectedUri != null) {
+            StorageReference fileReference = mStorageReference.child(
+                    System.currentTimeMillis() + "." + getFileExtension(mPhotoSelectedUri)
+            );
+            Log.d("cosa", "uploadFile2: " + mPhotoSelectedUri);
+            mUploadTask = fileReference.putFile(mPhotoSelectedUri)
+                    .addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
+                        @Override
+                        public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
+                            Handler handler = new Handler();
+                            handler.postDelayed(new Runnable() {
+                                @Override
+                                public void run() {
+                                    progressBar2.setProgress(0);
+                                }
+                            }, 500);
+                        }
+                        taskSnapshot.getStore().getDowloadUrl().
+                    });
+        }
+    }
+*/
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
@@ -165,14 +182,14 @@ public class MainActivity extends AppCompatActivity {
         ButterKnife.bind(this);
 
         mTextMessage = findViewById(R.id.message);
-        BottomNavigationView navigation = findViewById(R.id.navigation);
+        BottomNavigationView navigation = findViewById(R.id.navigation2);
         navigation.setOnNavigationItemSelectedListener(mOnNavigationItemSelectedListener);
 
         configFirebase();
 
         //mostrar foto de Firestore
         configPhotoProfile();
-        btnDelete.setVisibility(View.GONE);
+        btnDelete2.setVisibility(View.GONE);
     }
 
     private void configFirebase() {
@@ -192,13 +209,13 @@ public class MainActivity extends AppCompatActivity {
                     public void onSuccess(Uri uri) {
                         final RequestOptions options = new RequestOptions().centerCrop().diskCacheStrategy(DiskCacheStrategy.ALL);
 
-                        Glide.with(MainActivity.this)
+                        Glide.with(FileUploadActivity.this)
                                 .load(uri)
                                 .apply(options)
-                                .into(imgPhoto);
+                                .into(imgPhoto2);
                         //imgPhoto.setImageURI(mPhotoSelectedUri);
 
-                        btnDelete.setVisibility(View.VISIBLE);
+                        btnDelete2.setVisibility(View.VISIBLE);
                     }
                 }).addOnFailureListener(new OnFailureListener() {
             @Override
@@ -218,7 +235,7 @@ public class MainActivity extends AppCompatActivity {
                         .apply(options)
                         .into(imgPhoto);
                 //imgPhoto.setImageURI(mPhotoSelectedUri);
-                btnDelete.setVisibility(View.VISIBLE);
+                btnDelete2.setVisibility(View.VISIBLE);
             }
 
             @Override
@@ -284,8 +301,8 @@ public class MainActivity extends AppCompatActivity {
                         try {
                             Bitmap bitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(),
                                     mPhotoSelectedUri);
-                            imgPhoto.setImageBitmap(bitmap);
-                            btnDelete.setVisibility(View.GONE);
+                            imgPhoto2.setImageBitmap(bitmap);
+                            btnDelete2.setVisibility(View.GONE);
                             mTextMessage.setText(R.string.main_message_question_upload);
                         } catch (IOException e) {
                             e.printStackTrace();
@@ -301,8 +318,8 @@ public class MainActivity extends AppCompatActivity {
                     try {
                         Bitmap bitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(),
                                 mPhotoSelectedUri);
-                        imgPhoto.setImageBitmap(bitmap);
-                        btnDelete.setVisibility(View.GONE);
+                        imgPhoto2.setImageBitmap(bitmap);
+                        btnDelete2.setVisibility(View.GONE);
                         mTextMessage.setText(R.string.main_message_question_upload);
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -337,9 +354,9 @@ public class MainActivity extends AppCompatActivity {
         return Bitmap.createScaledBitmap(image, width, height, true);
     }
 
-    @OnClick(R.id.btnUpload)
+    @OnClick(R.id.btnUpload2)
     public void onUploadPhoto() {
-        progressBar.setVisibility(View.VISIBLE);
+        progressBar2.setVisibility(View.VISIBLE);
         Bitmap bitmap;
 //firestore
         StorageReference profileReference = mStorageReference.child(PATH_PROFILE);
@@ -349,14 +366,14 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void onProgress(UploadTask.TaskSnapshot taskSnapshot) {//TODO ALEX
                         double progress = (100 * taskSnapshot.getBytesTransferred()) / taskSnapshot.getTotalByteCount();
-                        progressBar.setProgress((int) progress);
+                        progressBar2.setProgress((int) progress);
                         mTextMessage.setText(String.format("%s%%", progress));
                     }
                 })
                 .addOnCompleteListener(new OnCompleteListener<UploadTask.TaskSnapshot>() {
                     @Override
                     public void onComplete(@NonNull Task<UploadTask.TaskSnapshot> task) {
-                        progressBar.setVisibility(View.GONE);
+                        progressBar2.setVisibility(View.GONE);
                     }
                 })
                 .addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
@@ -368,7 +385,7 @@ public class MainActivity extends AppCompatActivity {
                                     @Override
                                     public void onSuccess(Uri uri) {
                                         savePhotoUrl(uri);
-                                        btnDelete.setVisibility(View.VISIBLE);
+                                        btnDelete2.setVisibility(View.VISIBLE);
                                         mTextMessage.setText("Todo ok!");
                                     }
                                 });
@@ -386,15 +403,15 @@ public class MainActivity extends AppCompatActivity {
         mDatabaseReference.setValue(downloadUri.toString());
     }
 
-    @OnClick(R.id.btnDelete)
+    @OnClick(R.id.btnDelete2)
     public void onDeletePhoto() {
         mStorageReference.child(PATH_PROFILE).child(MY_PHOTO).delete()
                 .addOnSuccessListener(new OnSuccessListener<Void>() {
                     @Override
                     public void onSuccess(Void aVoid) {
                         mDatabaseReference.removeValue();
-                        imgPhoto.setImageBitmap(null);
-                        btnDelete.setVisibility(View.GONE);
+                        imgPhoto2.setImageBitmap(null);
+                        btnDelete2.setVisibility(View.GONE);
                         Snackbar.make(container, "Imagen eliminada", Snackbar.LENGTH_LONG).show();
                     }
                 })
